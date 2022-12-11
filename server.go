@@ -3,15 +3,26 @@ package main
 import (
 	"fmt"
 	"net"
+	"sync"
 )
 
 type Server struct {
 	Ip   string
 	Port int
+	// online users
+	OnlineMap map[string]*User
+	mapLock   sync.RWMutex
+	// broadcast channel
+	Message chan string
 }
 
 func NewServer(ip string, port int) *Server {
-	return &Server{ip, port}
+	return &Server{
+		Ip:        ip,
+		Port:      port,
+		OnlineMap: make(map[string]*User),
+		Message:   make(chan string),
+	}
 }
 
 func (this *Server) Start() {
@@ -28,6 +39,8 @@ func (this *Server) Start() {
 		}
 	}(listener)
 
+	go this.ListenMessager()
+
 	for {
 		// accept
 		conn, err := listener.Accept()
@@ -41,5 +54,31 @@ func (this *Server) Start() {
 }
 
 func (this *Server) Handler(conn net.Conn) {
-	fmt.Println("build connection successfully")
+	fmt.Println("Server Handler: build connection successfully")
+	user := NewUser(conn)
+	// add user to onlineMap
+	this.mapLock.Lock()
+	this.OnlineMap[user.Name] = user
+	this.mapLock.Unlock()
+	// broadcast message
+	this.BroadCast(user, "online")
+	select {}
+
+}
+
+func (this *Server) BroadCast(user *User, msg string) {
+	sendMsg := "[" + user.Addr + "]" + user.Name + ":" + msg
+	this.Message <- sendMsg
+}
+
+func (this *Server) ListenMessager() {
+	for {
+		msg := <-this.Message
+		// send msg to all online users
+		this.mapLock.Lock()
+		for _, user := range this.OnlineMap {
+			user.C <- msg
+		}
+		this.mapLock.Unlock()
+	}
 }
