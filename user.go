@@ -29,6 +29,9 @@ func NewUser(conn net.Conn) *User {
 func (this *User) listenMessage() {
 	for {
 		msg := <-this.C
-		this.conn.Write([]byte(msg + "\n"))
+		_, err := this.conn.Write([]byte(msg + "\n"))
+		if err != nil {
+			return
+		}
 	}
 }
