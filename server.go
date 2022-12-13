@@ -55,14 +55,8 @@ func (this *Server) Start() {
 }
 
 func (this *Server) Handler(conn net.Conn) {
-	fmt.Println("Server Handler: build connection successfully")
-	user := NewUser(conn)
-	// add user to onlineMap
-	this.mapLock.Lock()
-	this.OnlineMap[user.Name] = user
-	this.mapLock.Unlock()
-	// broadcast message
-	this.BroadCast(user, "online")
+	user := NewUser(conn, this)
+	user.Online()
 
 	go func() {
 		buf := make([]byte, 4096)
@@ -70,16 +64,16 @@ func (this *Server) Handler(conn net.Conn) {
 			n, err := conn.Read(buf)
 			if n == 0 {
 				// 客户端合法关闭
-				this.BroadCast(user, "offline")
+				user.Offline()
 				return
 			}
 			if err != nil && err != io.EOF {
 				fmt.Println("Conn Read Error: ", err)
 				return
 			}
-			// 提取用户信息，去除末尾'\n'(listenMessage中conn.Write加了'\n')
+			// 提取用户信息，去除输入时末尾'\n'
 			msg := string(buf[:n-1])
-			this.BroadCast(user, msg)
+			user.DoMessage(msg)
 		}
 	}()
 
