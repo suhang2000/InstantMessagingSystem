@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net"
+	"strings"
 )
 
 type User struct {
@@ -55,6 +57,8 @@ func (this *User) DoMessage(msg string) {
 			this.SendMsg(onlineMsg)
 		}
 		this.server.mapLock.Unlock()
+	} else if len(msg) > 7 && msg[:7] == "rename|" {
+		this.Rename(msg)
 	} else {
 		this.server.BroadCast(this, msg)
 	}
@@ -75,5 +79,27 @@ func (this *User) SendMsg(msg string) {
 	_, err := this.conn.Write([]byte(msg))
 	if err != nil {
 		return
+	}
+}
+
+func (this *User) Rename(msg string) {
+	// msg: rename|newName
+	splits := strings.Split(msg, "|")
+	if len(splits) != 2 {
+		fmt.Println("rename parameter is illegal")
+		return
+	}
+	newName := splits[1]
+	_, ok := this.server.OnlineMap[newName]
+	if ok {
+		this.SendMsg("this name is already in use\n")
+	} else {
+		this.server.mapLock.Lock()
+		delete(this.server.OnlineMap, this.Name)
+		this.server.OnlineMap[newName] = this
+		this.server.mapLock.Unlock()
+
+		this.Name = newName
+		this.SendMsg("rename successfully, new name: " + newName + "\n")
 	}
 }
