@@ -86,7 +86,7 @@ func (this *Server) Handler(conn net.Conn) {
 		select {
 		case <-isLive:
 			// do nothing
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * 300):
 			user.SendMsg("You are kicked offline\n")
 			close(user.C)
 			err := conn.Close()
